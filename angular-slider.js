@@ -146,7 +146,7 @@
               return offsetRange = maxOffset - minOffset;
             };
             updateDOM = function() {
-              var adjustBubbles, bindToInputEvents, fitToBar, percentOffset, percentToOffset, percentValue, setBindings, setPointers;
+              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, fitToBar, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
               dimensions();
               percentOffset = function(offset) {
                 return ((offset - minOffset) / offsetRange) * 100;
@@ -156,6 +156,9 @@
               };
               percentToOffset = function(percent) {
                 return pixelize(percent * offsetRange / 100);
+              };
+              percentToValue = function(percent) {
+                return (maxValue - minValue) * percent / 100 + minValue;
               };
               fitToBar = function(element) {
                 return offset(element, pixelize(Math.min(Math.max(0, offsetLeft(element)), barWidth - width(element))));
@@ -225,7 +228,7 @@
                   }
                 }
               };
-              bindToInputEvents = function(pointer, ref, events) {
+              bindPointerEvents = function(pointer, ref, events) {
                 var onEnd, onMove, onStart;
                 onEnd = function() {
                   pointer.removeClass('active');
@@ -293,20 +296,69 @@
                 };
                 return pointer.bind(events.start, onStart);
               };
+              bindSelectionBarEvents = function(selBar, events) {
+                var offsetHighStart, offsetLowStart, offsetPointerStart, onEnd, onMove, onStart;
+                offsetPointerStart = void 0;
+                offsetLowStart = void 0;
+                offsetHighStart = void 0;
+                onStart = function(event) {
+                  event.stopPropagation();
+                  event.preventDefault();
+                  offsetPointerStart = event.clientX || event.touches[0].clientX;
+                  offsetLowStart = parseInt(percentToOffset(percentValue(scope[refLow], 10)));
+                  offsetHighStart = parseInt(percentToOffset(percentValue(scope[refHigh], 10)));
+                  ngDocument.bind(events.move, onMove);
+                  return ngDocument.bind(events.end, onEnd);
+                };
+                onMove = function(event) {
+                  var offsetHighCurrent, offsetLowCurrent, offsetPointerCurrent, offsetPointerDelta, valueHighCurrent, valueLowCurrent;
+                  offsetPointerCurrent = event.clientX || event.touches[0].clientX;
+                  offsetPointerDelta = offsetPointerCurrent - offsetPointerStart;
+                  offsetLowCurrent = offsetLowStart + offsetPointerDelta;
+                  offsetHighCurrent = offsetHighStart + offsetPointerDelta;
+                  if (offsetLowCurrent < minOffset) {
+                    offsetLowCurrent = minOffset;
+                    offsetHighCurrent = offsetLowCurrent + (offsetHighStart - offsetLowStart);
+                  }
+                  if (offsetHighCurrent > maxOffset) {
+                    offsetHighCurrent = maxOffset;
+                    offsetLowCurrent = offsetHighCurrent + (offsetLowStart - offsetHighStart);
+                  }
+                  valueLowCurrent = percentToValue(percentOffset(offsetLowCurrent));
+                  valueHighCurrent = percentToValue(percentOffset(offsetHighCurrent));
+                  scope[refLow] = valueLowCurrent;
+                  scope[refHigh] = valueHighCurrent;
+                  return scope.$apply();
+                };
+                onEnd = function() {
+                  ngDocument.unbind(events.move);
+                  return ngDocument.unbind(events.end);
+                };
+                return selBar.bind(events.start, onStart);
+              };
               setBindings = function() {
-                var bind, inputMethod, _j, _len2, _ref3, _results;
+                var bind, inputMethod, _j, _k, _len2, _len3, _ref3, _ref4, _results;
                 boundToInputs = true;
                 bind = function(method) {
-                  bindToInputEvents(minPtr, refLow, inputEvents[method]);
-                  return bindToInputEvents(maxPtr, refHigh, inputEvents[method]);
+                  bindPointerEvents(minPtr, refLow, inputEvents[method]);
+                  return bindPointerEvents(maxPtr, refHigh, inputEvents[method]);
                 };
                 _ref3 = ['touch', 'mouse'];
-                _results = [];
                 for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
                   inputMethod = _ref3[_j];
-                  _results.push(bind(inputMethod));
+                  bind(inputMethod);
                 }
-                return _results;
+                if (range) {
+                  _ref4 = ['touch', 'mouse'];
+                  _results = [];
+                  for (_k = 0, _len3 = _ref4.length; _k < _len3; _k++) {
+                    inputMethod = _ref4[_k];
+                    _results.push((function(method) {
+                      return bindSelectionBarEvents(selBar, inputEvents[method]);
+                    })(inputMethod));
+                  }
+                  return _results;
+                }
               };
               setPointers();
               adjustBubbles();
