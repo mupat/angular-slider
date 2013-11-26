@@ -146,8 +146,28 @@
               return offsetRange = maxOffset - minOffset;
             };
             updateDOM = function() {
-              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, fitToBar, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
+              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, fitToBar, getX, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
               dimensions();
+              getX = function(e) {
+                var checkTouch;
+                if (e.clientX) {
+                  return e.clientX;
+                }
+                checkTouch = function(e) {
+                  if (e.touches && e.touches[0] && e.touches[0].clientX) {
+                    return e.touches[0].clientX;
+                  } else {
+                    return false;
+                  }
+                };
+                if (checkTouch(e)) {
+                  return checkTouch(e);
+                }
+                if (checkTouch(e.originalEvent)) {
+                  return checkTouch(e.originalEvent);
+                }
+                return false;
+              };
               percentOffset = function(offset) {
                 return ((offset - minOffset) / offsetRange) * 100;
               };
@@ -237,7 +257,7 @@
                 };
                 onMove = function(event) {
                   var eventX, newHigh, newLow, newOffset, newPercent, newValue;
-                  eventX = event.clientX || event.touches[0].clientX;
+                  eventX = getX(event);
                   newOffset = eventX - element[0].getBoundingClientRect().left - pointerHalfWidth;
                   newOffset = Math.max(Math.min(newOffset, maxOffset), minOffset);
                   newPercent = percentOffset(newOffset);
@@ -304,7 +324,7 @@
                 onStart = function(event) {
                   event.stopPropagation();
                   event.preventDefault();
-                  offsetPointerStart = event.clientX || event.touches[0].clientX;
+                  offsetPointerStart = getX(event);
                   offsetLowStart = parseInt(percentToOffset(percentValue(scope[refLow], 10)));
                   offsetHighStart = parseInt(percentToOffset(percentValue(scope[refHigh], 10)));
                   ngDocument.bind(events.move, onMove);
@@ -312,7 +332,7 @@
                 };
                 onMove = function(event) {
                   var offsetHighCurrent, offsetLowCurrent, offsetPointerCurrent, offsetPointerDelta, valueHighCurrent, valueLowCurrent;
-                  offsetPointerCurrent = event.clientX || event.touches[0].clientX;
+                  offsetPointerCurrent = getX(event);
                   offsetPointerDelta = offsetPointerCurrent - offsetPointerStart;
                   offsetLowCurrent = offsetLowStart + offsetPointerDelta;
                   offsetHighCurrent = offsetHighStart + offsetPointerDelta;
