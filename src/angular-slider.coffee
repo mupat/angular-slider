@@ -57,8 +57,9 @@ sliderDirective = ($timeout) ->
         # Check if it is a range slider
         range = !attributes.ngModel? and (attributes.ngModelLow? and attributes.ngModelHigh?)
 
-        # Get the fixed range, if any
-        fixedRange = parseInt(attributes.range, 10)
+        # Get the fixed or minimal range, if any
+        fixedRange = parseInt attributes.range, 10
+        minRange = parseInt attributes.minRange, 10
 
         # Get references to template elements
         [fullBar, selBar, minPtr, maxPtr, selBub,
@@ -200,15 +201,26 @@ sliderDirective = ($timeout) ->
                         newPercent = percentOffset newOffset
                         newValue = minValue + (valueRange * newPercent / 100.0)
                         if range
-                            if fixedRange
+                            if ref is refLow
+                                # We have to ensure that the minimal range is met if the current
+                                # upper value minus the new lower value is smaller than the minimal
+                                # range.
+                                ensureMinRange = scope[refHigh] - newValue < minRange
+                            else
+                                # We have to ensure that the minimal range is met if the new upper
+                                # value minus the current lower value is smaller than the minimal
+                                # range.
+                                ensureMinRange = newValue - scope[refLow] < minRange
+
+                            if fixedRange or ensureMinRange
                                 # We have to set both refLow and refHigh if a fixedRange is set, so
                                 # we handle this entirely different from the other cases.
                                 #
                                 if ref is refLow
                                     # The user moves the lower end. Hence we set newLow to the new
                                     # value and newHigh to the lower end plus the width of the
-                                    # range.
-                                    newHigh = newValue + fixedRange
+                                    # (fixed or minimal) range.
+                                    newHigh = newValue + (fixedRange || minRange)
                                     newLow = newValue
 
                                     # newHigh might now exceed the maximum value. In this case we
@@ -219,7 +231,7 @@ sliderDirective = ($timeout) ->
                                 else
                                     # The user moves the upper end.
                                     newHigh = newValue
-                                    newLow = newValue - fixedRange
+                                    newLow = newValue - (fixedRange || minRange)
 
                                     # newLow might be smaller than the minimum value. We have to
                                     # adjust both sliders in this case.

@@ -79,12 +79,13 @@
       },
       template: '<span class="bar"></span><span class="bar selection"></span><span class="pointer"></span><span class="pointer"></span><span class="bubble selection"></span><span ng-bind-html-unsafe="translate({value: floor})" class="bubble limit"></span><span ng-bind-html-unsafe="translate({value: ceiling})" class="bubble limit"></span><span class="bubble"></span><span class="bubble"></span><span class="bubble"></span>',
       compile: function(element, attributes) {
-        var ceilBub, cmbBub, e, fixedRange, flrBub, fullBar, highBub, lowBub, maxPtr, minPtr, range, refHigh, refLow, selBar, selBub, watchables, _i, _len, _ref, _ref2;
+        var ceilBub, cmbBub, e, fixedRange, flrBub, fullBar, highBub, lowBub, maxPtr, minPtr, minRange, range, refHigh, refLow, selBar, selBub, watchables, _i, _len, _ref, _ref2;
         if (attributes.translate) {
           attributes.$set('translate', "" + attributes.translate + "(value)");
         }
         range = !(attributes.ngModel != null) && ((attributes.ngModelLow != null) && (attributes.ngModelHigh != null));
         fixedRange = parseInt(attributes.range, 10);
+        minRange = parseInt(attributes.minRange, 10);
         _ref = (function() {
           var _i, _len, _ref, _results;
           _ref = element.children();
@@ -256,16 +257,21 @@
                   return ngDocument.unbind(events.end);
                 };
                 onMove = function(event) {
-                  var eventX, newHigh, newLow, newOffset, newPercent, newValue;
+                  var ensureMinRange, eventX, newHigh, newLow, newOffset, newPercent, newValue;
                   eventX = getX(event);
                   newOffset = eventX - element[0].getBoundingClientRect().left - pointerHalfWidth;
                   newOffset = Math.max(Math.min(newOffset, maxOffset), minOffset);
                   newPercent = percentOffset(newOffset);
                   newValue = minValue + (valueRange * newPercent / 100.0);
                   if (range) {
-                    if (fixedRange) {
+                    if (ref === refLow) {
+                      ensureMinRange = scope[refHigh] - newValue < minRange;
+                    } else {
+                      ensureMinRange = newValue - scope[refLow] < minRange;
+                    }
+                    if (fixedRange || ensureMinRange) {
                       if (ref === refLow) {
-                        newHigh = newValue + fixedRange;
+                        newHigh = newValue + (fixedRange || minRange);
                         newLow = newValue;
                         if (newHigh > maxValue) {
                           newLow -= newHigh - maxValue;
@@ -273,7 +279,7 @@
                         }
                       } else {
                         newHigh = newValue;
-                        newLow = newValue - fixedRange;
+                        newLow = newValue - (fixedRange || minRange);
                         if (newLow < minValue) {
                           newHigh += minValue - newLow;
                           newLow = minValue;
