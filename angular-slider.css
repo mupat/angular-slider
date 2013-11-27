@@ -50,6 +50,7 @@ slider span.bar.selection-drag-handle {
   -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
   filter: alpha(opacity=0);
   z-index: 2;
+  cursor: ew-resize;
 }
 slider span.pointer {
   cursor: pointer;
