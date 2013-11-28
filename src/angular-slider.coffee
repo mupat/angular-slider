@@ -223,6 +223,8 @@ sliderDirective = ($timeout) ->
                             # have to move both newLow and newHigh to the left.
                             if newHigh > maxValue
                                 newLow -= newHigh - maxValue
+                                newLow = Math.max minValue, newLow
+
                                 newHigh = maxValue
                         else
                             # The user moves the upper end.
@@ -233,6 +235,8 @@ sliderDirective = ($timeout) ->
                             # adjust both sliders in this case.
                             if newLow < minValue
                                 newHigh += minValue - newLow
+                                newHigh = Math.min maxValue, newHigh
+
                                 newLow = minValue
 
                         newHigh = roundStep(newHigh, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))

@@ -75,17 +75,17 @@
         ngModel: '=?',
         ngModelLow: '=?',
         ngModelHigh: '=?',
+        ngModelMinRange: '=?',
+        ngModelRange: '=?',
         translate: '&'
       },
       template: '<span class="bar"></span><span class="bar selection"></span><span class="bar selection-drag-handle"></span><span class="pointer"></span><span class="pointer"></span><span class="bubble selection"></span><span ng-bind-html-unsafe="translate({value: floor})" class="bubble limit"></span><span ng-bind-html-unsafe="translate({value: ceiling})" class="bubble limit"></span><span class="bubble"></span><span class="bubble"></span><span class="bubble"></span>',
       compile: function(element, attributes) {
-        var ceilBub, cmbBub, e, fixedRange, flrBub, fullBar, highBub, lowBub, maxPtr, minPtr, minRange, range, refHigh, refLow, selBar, selBub, selDragHandleBar, watchables, _i, _len, _ref, _ref2;
+        var ceilBub, cmbBub, e, flrBub, fullBar, highBub, lowBub, maxPtr, minPtr, range, refHigh, refLow, selBar, selBub, selDragHandleBar, watchables, _i, _len, _ref, _ref2;
         if (attributes.translate) {
           attributes.$set('translate', "" + attributes.translate + "(value)");
         }
         range = !(attributes.ngModel != null) && ((attributes.ngModelLow != null) && (attributes.ngModelHigh != null));
-        fixedRange = parseInt(attributes.range, 10);
-        minRange = parseInt(attributes.minRange, 10);
         _ref = (function() {
           var _i, _len, _ref, _results;
           _ref = element.children();
@@ -109,7 +109,7 @@
             element.remove();
           }
         }
-        watchables = [refLow, 'floor', 'ceiling'];
+        watchables = [refLow, 'floor', 'ceiling', 'ngModelMinRange', 'ngModelRange'];
         if (range) {
           watchables.push(refHigh);
         }
@@ -147,7 +147,7 @@
               return offsetRange = maxOffset - minOffset;
             };
             updateDOM = function() {
-              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, fitToBar, getX, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
+              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, ensureMinAndFixedRange, fitToBar, getX, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
               dimensions();
               getX = function(e) {
                 var checkTouch;
@@ -256,6 +256,42 @@
                   }
                 }
               };
+              ensureMinAndFixedRange = function(ref, newValue) {
+                var ensureMinRange, fixedRange, minRange, newHigh, newLow;
+                minRange = parseInt(scope.ngModelMinRange, 10);
+                fixedRange = parseInt(scope.ngModelRange, 10);
+                if (!(minRange || fixedRange)) {
+                  return false;
+                }
+                if (ref === refLow) {
+                  ensureMinRange = scope[refHigh] - newValue < minRange;
+                } else {
+                  ensureMinRange = newValue - scope[refLow] < minRange;
+                }
+                if (fixedRange || ensureMinRange) {
+                  if (ref === refLow) {
+                    newHigh = newValue + (fixedRange || minRange);
+                    newLow = newValue;
+                    if (newHigh > maxValue) {
+                      newLow -= newHigh - maxValue;
+                      newLow = Math.max(minValue, newLow);
+                      newHigh = maxValue;
+                    }
+                  } else {
+                    newHigh = newValue;
+                    newLow = newValue - (fixedRange || minRange);
+                    if (newLow < minValue) {
+                      newHigh += minValue - newLow;
+                      newHigh = Math.min(maxValue, newHigh);
+                      newLow = minValue;
+                    }
+                  }
+                  newHigh = roundStep(newHigh, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
+                  scope[refHigh] = newHigh;
+                  newLow = roundStep(newLow, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
+                  return scope[refLow] = newLow;
+                }
+              };
               bindPointerEvents = function(pointer, ref, events) {
                 var onEnd, onMove, onStart;
                 onEnd = function() {
@@ -269,55 +305,28 @@
                   return ngDocument.unbind(events.end);
                 };
                 onMove = function(event) {
-                  var ensureMinRange, eventX, newHigh, newLow, newOffset, newPercent, newValue;
+                  var eventX, newOffset, newPercent, newValue;
                   eventX = getX(event);
                   newOffset = eventX - element[0].getBoundingClientRect().left - pointerHalfWidth;
                   newOffset = Math.max(Math.min(newOffset, maxOffset), minOffset);
                   newPercent = percentOffset(newOffset);
                   newValue = minValue + (valueRange * newPercent / 100.0);
-                  if (range) {
+                  if (range && !ensureMinAndFixedRange(ref, newValue)) {
                     if (ref === refLow) {
-                      ensureMinRange = scope[refHigh] - newValue < minRange;
-                    } else {
-                      ensureMinRange = newValue - scope[refLow] < minRange;
-                    }
-                    if (fixedRange || ensureMinRange) {
-                      if (ref === refLow) {
-                        newHigh = newValue + (fixedRange || minRange);
-                        newLow = newValue;
-                        if (newHigh > maxValue) {
-                          newLow -= newHigh - maxValue;
-                          newHigh = maxValue;
-                        }
-                      } else {
-                        newHigh = newValue;
-                        newLow = newValue - (fixedRange || minRange);
-                        if (newLow < minValue) {
-                          newHigh += minValue - newLow;
-                          newLow = minValue;
-                        }
+                      if (newValue > scope[refHigh]) {
+                        ref = refHigh;
+                        minPtr.removeClass('active');
+                        maxPtr.addClass('active');
                       }
-                      newHigh = roundStep(newHigh, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
-                      scope[refHigh] = newHigh;
-                      newLow = roundStep(newLow, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
-                      scope[refLow] = newLow;
                     } else {
-                      if (ref === refLow) {
-                        if (newValue > scope[refHigh]) {
-                          ref = refHigh;
-                          minPtr.removeClass('active');
-                          maxPtr.addClass('active');
-                        }
-                      } else {
-                        if (newValue < scope[refLow]) {
-                          ref = refLow;
-                          maxPtr.removeClass('active');
-                          minPtr.addClass('active');
-                        }
+                      if (newValue < scope[refLow]) {
+                        ref = refLow;
+                        maxPtr.removeClass('active');
+                        minPtr.addClass('active');
                       }
-                      newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
-                      scope[ref] = newValue;
                     }
+                    newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
+                    scope[ref] = newValue;
                   } else {
                     newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
                     scope[ref] = newValue;
@@ -400,6 +409,7 @@
               };
               setPointers();
               adjustBubbles();
+              ensureMinAndFixedRange(refLow, parseInt(scope[refLow], 10));
               if (!boundToInputs) {
                 return setBindings();
               }
