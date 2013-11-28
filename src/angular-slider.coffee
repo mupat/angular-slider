@@ -47,6 +47,8 @@ sliderDirective = ($timeout) ->
         ngModel:     '=?'
         ngModelLow:  '=?'
         ngModelHigh: '=?'
+        ngModelMinRange: '=?'
+        ngModelRange: '=?'
         translate:   '&'
     template: '<span class="bar"></span><span class="bar selection"></span><span class="bar selection-drag-handle"></span><span class="pointer"></span><span class="pointer"></span><span class="bubble selection"></span><span ng-bind-html-unsafe="translate({value: floor})" class="bubble limit"></span><span ng-bind-html-unsafe="translate({value: ceiling})" class="bubble limit"></span><span class="bubble"></span><span class="bubble"></span><span class="bubble"></span>'
     compile: (element, attributes) ->
@@ -56,10 +58,6 @@ sliderDirective = ($timeout) ->
 
         # Check if it is a range slider
         range = !attributes.ngModel? and (attributes.ngModelLow? and attributes.ngModelHigh?)
-
-        # Get the fixed or minimal range, if any
-        fixedRange = parseInt attributes.range, 10
-        minRange = parseInt attributes.minRange, 10
 
         # Get references to template elements
         [fullBar, selBar, selDragHandleBar, minPtr, maxPtr, selBub,
@@ -79,7 +77,7 @@ sliderDirective = ($timeout) ->
             element.remove() for element in [selBar, selDragHandleBar, maxPtr, selBub, highBub, cmbBub]
 
         # Scope values to watch for changes
-        watchables = [refLow, 'floor', 'ceiling']
+        watchables = [refLow, 'floor', 'ceiling', 'ngModelMinRange', 'ngModelRange']
         watchables.push refHigh if range
 
         post: (scope, element, attributes) ->
@@ -192,6 +190,56 @@ sliderDirective = ($timeout) ->
                         else
                             show ceilBub
 
+                ensureMinAndFixedRange = (ref, newValue) ->
+                    minRange = parseInt scope.ngModelMinRange, 10
+                    fixedRange = parseInt scope.ngModelRange, 10
+
+                    if not (minRange or fixedRange)
+                        return false
+
+                    if ref is refLow
+                        # We have to ensure that the minimal range is met if the current
+                        # upper value minus the new lower value is smaller than the minimal
+                        # range.
+                        ensureMinRange = scope[refHigh] - newValue < minRange
+                    else
+                        # We have to ensure that the minimal range is met if the new upper
+                        # value minus the current lower value is smaller than the minimal
+                        # range.
+                        ensureMinRange = newValue - scope[refLow] < minRange
+
+                    if fixedRange or ensureMinRange
+                        # We have to set both refLow and refHigh if a fixedRange is set, so
+                        # we handle this entirely different from the other cases.
+                        #
+                        if ref is refLow
+                            # The user moves the lower end. Hence we set newLow to the new
+                            # value and newHigh to the lower end plus the width of the
+                            # (fixed or minimal) range.
+                            newHigh = newValue + (fixedRange || minRange)
+                            newLow = newValue
+
+                            # newHigh might now exceed the maximum value. In this case we
+                            # have to move both newLow and newHigh to the left.
+                            if newHigh > maxValue
+                                newLow -= newHigh - maxValue
+                                newHigh = maxValue
+                        else
+                            # The user moves the upper end.
+                            newHigh = newValue
+                            newLow = newValue - (fixedRange || minRange)
+
+                            # newLow might be smaller than the minimum value. We have to
+                            # adjust both sliders in this case.
+                            if newLow < minValue
+                                newHigh += minValue - newLow
+                                newLow = minValue
+
+                        newHigh = roundStep(newHigh, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
+                        scope[refHigh] = newHigh
+
+                        newLow = roundStep(newLow, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
+                        scope[refLow] = newLow
 
                 bindPointerEvents = (pointer, ref, events) ->
                     onEnd = ->
@@ -204,63 +252,19 @@ sliderDirective = ($timeout) ->
                         newOffset = Math.max(Math.min(newOffset, maxOffset), minOffset)
                         newPercent = percentOffset newOffset
                         newValue = minValue + (valueRange * newPercent / 100.0)
-                        if range
+                        if range and not ensureMinAndFixedRange ref, newValue
                             if ref is refLow
-                                # We have to ensure that the minimal range is met if the current
-                                # upper value minus the new lower value is smaller than the minimal
-                                # range.
-                                ensureMinRange = scope[refHigh] - newValue < minRange
+                                if newValue > scope[refHigh]
+                                    ref = refHigh
+                                    minPtr.removeClass 'active'
+                                    maxPtr.addClass 'active'
                             else
-                                # We have to ensure that the minimal range is met if the new upper
-                                # value minus the current lower value is smaller than the minimal
-                                # range.
-                                ensureMinRange = newValue - scope[refLow] < minRange
-
-                            if fixedRange or ensureMinRange
-                                # We have to set both refLow and refHigh if a fixedRange is set, so
-                                # we handle this entirely different from the other cases.
-                                #
-                                if ref is refLow
-                                    # The user moves the lower end. Hence we set newLow to the new
-                                    # value and newHigh to the lower end plus the width of the
-                                    # (fixed or minimal) range.
-                                    newHigh = newValue + (fixedRange || minRange)
-                                    newLow = newValue
-
-                                    # newHigh might now exceed the maximum value. In this case we
-                                    # have to move both newLow and newHigh to the left.
-                                    if newHigh > maxValue
-                                        newLow -= newHigh - maxValue
-                                        newHigh = maxValue
-                                else
-                                    # The user moves the upper end.
-                                    newHigh = newValue
-                                    newLow = newValue - (fixedRange || minRange)
-
-                                    # newLow might be smaller than the minimum value. We have to
-                                    # adjust both sliders in this case.
-                                    if newLow < minValue
-                                        newHigh += minValue - newLow
-                                        newLow = minValue
-
-                                newHigh = roundStep(newHigh, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
-                                scope[refHigh] = newHigh
-
-                                newLow = roundStep(newLow, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
-                                scope[refLow] = newLow
-                            else
-                                if ref is refLow
-                                    if newValue > scope[refHigh]
-                                        ref = refHigh
-                                        minPtr.removeClass 'active'
-                                        maxPtr.addClass 'active'
-                                else
-                                    if newValue < scope[refLow]
-                                        ref = refLow
-                                        maxPtr.removeClass 'active'
-                                        minPtr.addClass 'active'
-                                newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
-                                scope[ref] = newValue
+                                if newValue < scope[refLow]
+                                    ref = refLow
+                                    maxPtr.removeClass 'active'
+                                    minPtr.addClass 'active'
+                            newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
+                            scope[ref] = newValue
                         else
                             newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
                             scope[ref] = newValue
@@ -334,6 +338,7 @@ sliderDirective = ($timeout) ->
 
                 setPointers()
                 adjustBubbles()
+                ensureMinAndFixedRange(refLow, parseInt scope[refLow], 10)
                 setBindings() unless boundToInputs
 
             $timeout updateDOM
