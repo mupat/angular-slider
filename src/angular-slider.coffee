@@ -195,7 +195,7 @@ sliderDirective = ($timeout) ->
 
                 bindPointerEvents = (pointer, ref, events) ->
                     onEnd = ->
-                        pointer.removeClass 'active'
+                        ptr.removeClass 'active' for ptr in [minPtr, maxPtr]
                         ngDocument.unbind events.move
                         ngDocument.unbind events.end
                     onMove = (event) ->
