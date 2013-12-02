@@ -44,10 +44,10 @@ sliderDirective = ($timeout) ->
         ceiling:     '@'
         step:        '@'
         precision:   '@'
+        minRange:    '@'
         ngModel:     '=?'
         ngModelLow:  '=?'
         ngModelHigh: '=?'
-        ngModelMinRange: '=?'
         ngModelRange: '=?'
         translate:   '&'
     template: '<span class="bar"></span><span class="bar selection"></span><span class="bar selection-drag-handle"></span><span class="pointer"></span><span class="pointer"></span><span class="bubble selection"></span><span ng-bind-html-unsafe="translate({value: floor})" class="bubble limit"></span><span ng-bind-html-unsafe="translate({value: ceiling})" class="bubble limit"></span><span class="bubble"></span><span class="bubble"></span><span class="bubble"></span>'
@@ -77,7 +77,7 @@ sliderDirective = ($timeout) ->
             element.remove() for element in [selBar, selDragHandleBar, maxPtr, selBub, highBub, cmbBub]
 
         # Scope values to watch for changes
-        watchables = [refLow, 'floor', 'ceiling', 'ngModelMinRange', 'ngModelRange']
+        watchables = [refLow, 'floor', 'ceiling', 'minRange', 'ngModelRange']
         watchables.push refHigh if range
 
         post: (scope, element, attributes) ->
@@ -191,7 +191,7 @@ sliderDirective = ($timeout) ->
                             show ceilBub
 
                 ensureMinAndFixedRange = (ref, newValue) ->
-                    minRange = parseInt scope.ngModelMinRange, 10
+                    minRange = parseInt scope.minRange, 10
                     fixedRange = parseInt scope.ngModelRange, 10
 
                     if not (minRange or fixedRange)

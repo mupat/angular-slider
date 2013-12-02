@@ -72,10 +72,10 @@
         ceiling: '@',
         step: '@',
         precision: '@',
+        minRange: '@',
         ngModel: '=?',
         ngModelLow: '=?',
         ngModelHigh: '=?',
-        ngModelMinRange: '=?',
         ngModelRange: '=?',
         translate: '&'
       },
@@ -109,7 +109,7 @@
             element.remove();
           }
         }
-        watchables = [refLow, 'floor', 'ceiling', 'ngModelMinRange', 'ngModelRange'];
+        watchables = [refLow, 'floor', 'ceiling', 'minRange', 'ngModelRange'];
         if (range) {
           watchables.push(refHigh);
         }
@@ -258,7 +258,7 @@
               };
               ensureMinAndFixedRange = function(ref, newValue) {
                 var ensureMinRange, fixedRange, minRange, newHigh, newLow;
-                minRange = parseInt(scope.ngModelMinRange, 10);
+                minRange = parseInt(scope.minRange, 10);
                 fixedRange = parseInt(scope.ngModelRange, 10);
                 if (!(minRange || fixedRange)) {
                   return false;
