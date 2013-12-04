@@ -137,6 +137,19 @@ sliderDirective = ($timeout) ->
                 # Fit bubble to bar width
                 fitToBar = (element) -> offset element, pixelize(Math.min (Math.max 0, offsetLeft(element)), (barWidth - width(element)))
 
+                checkConstraint = (ref) ->
+                    if scope[ref] < minValue or scope[ref] > maxValue
+                        scope[ref] = Math.min(maxValue, Math.max(minValue, scope[ref]))
+                        return true
+
+                    return false
+
+                checkRangeConstraints = () ->
+                    uL = checkConstraint(refLow)
+                    uH = checkConstraint(refHigh) if range
+
+                    return uL or uH
+
                 setPointers = ->
                     offset ceilBub, pixelize(barWidth - width(ceilBub))
                     newLowValue = percentValue scope[refLow]
@@ -253,7 +266,6 @@ sliderDirective = ($timeout) ->
                     onMove = (event) ->
                         eventX = getX(event)
                         newOffset = eventX - element[0].getBoundingClientRect().left - pointerHalfWidth
-                        newOffset = Math.max(Math.min(newOffset, maxOffset), minOffset)
                         newPercent = percentOffset newOffset
                         newValue = minValue + (valueRange * newPercent / 100.0)
                         if range and not ensureMinAndFixedRange ref, newValue
@@ -273,6 +285,7 @@ sliderDirective = ($timeout) ->
                             newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
                             scope[ref] = newValue
 
+                        checkConstraint ref
                         scope.$apply()
                     onStart = (event) ->
                         pointer.addClass 'active'
@@ -339,6 +352,9 @@ sliderDirective = ($timeout) ->
                         ((method) ->
                             bindSelectionBarEvents selDragHandleBar, inputEvents[method]
                         )(inputMethod) for inputMethod in ['touch', 'mouse']
+
+                if checkRangeConstraints()
+                    scope.$apply()
 
                 setPointers()
                 adjustBubbles()

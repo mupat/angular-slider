@@ -147,7 +147,7 @@
               return offsetRange = maxOffset - minOffset;
             };
             updateDOM = function() {
-              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, ensureMinAndFixedRange, fitToBar, getX, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
+              var adjustBubbles, bindPointerEvents, bindSelectionBarEvents, checkConstraint, checkRangeConstraints, ensureMinAndFixedRange, fitToBar, getX, percentOffset, percentToOffset, percentToValue, percentValue, setBindings, setPointers;
               dimensions();
               getX = function(e) {
                 var checkTouch;
@@ -183,6 +183,21 @@
               };
               fitToBar = function(element) {
                 return offset(element, pixelize(Math.min(Math.max(0, offsetLeft(element)), barWidth - width(element))));
+              };
+              checkConstraint = function(ref) {
+                if (scope[ref] < minValue || scope[ref] > maxValue) {
+                  scope[ref] = Math.min(maxValue, Math.max(minValue, scope[ref]));
+                  return true;
+                }
+                return false;
+              };
+              checkRangeConstraints = function() {
+                var uH, uL;
+                uL = checkConstraint(refLow);
+                if (range) {
+                  uH = checkConstraint(refHigh);
+                }
+                return uL || uH;
               };
               setPointers = function() {
                 var bar, newHighValue, newLowValue, _fn, _j, _len2, _ref3;
@@ -308,7 +323,6 @@
                   var eventX, newOffset, newPercent, newValue;
                   eventX = getX(event);
                   newOffset = eventX - element[0].getBoundingClientRect().left - pointerHalfWidth;
-                  newOffset = Math.max(Math.min(newOffset, maxOffset), minOffset);
                   newPercent = percentOffset(newOffset);
                   newValue = minValue + (valueRange * newPercent / 100.0);
                   if (range && !ensureMinAndFixedRange(ref, newValue)) {
@@ -331,6 +345,7 @@
                     newValue = roundStep(newValue, parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor));
                     scope[ref] = newValue;
                   }
+                  checkConstraint(ref);
                   return scope.$apply();
                 };
                 onStart = function(event) {
@@ -407,6 +422,9 @@
                   return _results;
                 }
               };
+              if (checkRangeConstraints()) {
+                scope.$apply();
+              }
               setPointers();
               adjustBubbles();
               ensureMinAndFixedRange(refLow, parseInt(scope[refLow], 10));
