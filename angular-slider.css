@@ -91,3 +91,12 @@ slider span.bubble.selection {
 slider span.bubble.limit {
   color: #808080;
 }
+slider.vertical-slider {
+  width: 7px;
+  height: 100%;
+  margin: 5px 25px 5px 25px;
+}
+slider.vertical-slider span.pointer {
+  top: 0;
+  left: -8px;
+}

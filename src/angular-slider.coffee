@@ -5,15 +5,19 @@ SLIDER_TAG  = 'slider'
 
 # HELPER FUNCTIONS
 
+isHorizontal    = (orientation) -> orientation == 'horizontal'
 angularize      = (element) -> angular.element element
 pixelize        = (position) -> "#{position}px"
 hide            = (element) -> element.css opacity: 0
 show            = (element) -> element.css opacity: 1
-offset          = (element, position) -> element.css left: position
-halfWidth       = (element) -> element[0].offsetWidth / 2
-offsetLeft      = (element) -> element[0].offsetLeft
-width           = (element) -> element[0].offsetWidth
-gap             = (element1, element2) -> offsetLeft(element2) - offsetLeft(element1) - width(element1)
+setOffset       = (orientation, element, position) ->
+    if isHorizontal orientation then element.css left: position else element.css top: position
+getOffset       = (orientation, element) ->
+    if isHorizontal orientation then element[0].offsetLeft else element[0].offsetTop
+dimension       = (orientation, element) ->
+    if isHorizontal orientation then element[0].offsetWidth else element[0].offsetHeight
+gap             = (orientation, element1, element2) ->
+    getOffset(orientation, element2) - getOffset(orientation, element1) - dimension(orientation, element1)
 bindHtml        = (element, html) -> element.attr 'ng-bind-html-unsafe', html
 roundStep       = (value, precision, step, floor = 0) ->
     step ?= 1 / Math.pow(10, precision)
@@ -59,6 +63,8 @@ sliderDirective = ($timeout) ->
         # Check if it is a range slider
         range = !attributes.ngModel? and (attributes.ngModelLow? and attributes.ngModelHigh?)
 
+        orientation = attributes.orientation ? 'horizontal';
+
         # Get references to template elements
         [fullBar, selBar, selDragHandleBar, minPtr, maxPtr, selBub,
             flrBub, ceilBub, lowBub, highBub, cmbBub] = (angularize(e) for e in element.children())
@@ -97,11 +103,11 @@ sliderDirective = ($timeout) ->
                 scope.diff = roundStep(scope[refHigh] - scope[refLow], parseInt(scope.precision), parseFloat(scope.step), parseFloat(scope.floor))
                 
                 # Commonly used measurements
-                pointerHalfWidth = halfWidth minPtr
-                barWidth = width fullBar
+                pointerHalfWidth = dimension(orientation, minPtr) / 2
+                barWidth = dimension orientation, fullBar
 
                 minOffset = 0
-                maxOffset = barWidth - width(minPtr)
+                maxOffset = barWidth - dimension(orientation, minPtr)
 
                 minValue = parseFloat attributes.floor
                 maxValue = parseFloat attributes.ceiling
@@ -112,13 +118,18 @@ sliderDirective = ($timeout) ->
             updateDOM = ->
                 dimensions()
 
-                getX = (e) ->
+                getPointerOffset = (orientation, e) ->
+                    if isHorizontal orientation
+                        prop = 'clientX'
+                    else
+                        prop = 'clientY'
+
                     # Desktop event
-                    return e.clientX if e.clientX
+                    return e[prop] if e[prop]
 
                     checkTouch = (e) ->
-                        if e.touches && e.touches[0] && e.touches[0].clientX
-                            return e.touches[0].clientX
+                        if e.touches && e.touches[0] && e.touches[0][prop]
+                            return e.touches[0][prop]
                         else
                             return false
 
@@ -135,7 +146,7 @@ sliderDirective = ($timeout) ->
                 percentToValue = (percent) -> (maxValue - minValue) * percent / 100 + minValue
 
                 # Fit bubble to bar width
-                fitToBar = (element) -> offset element, pixelize(Math.min (Math.max 0, offsetLeft(element)), (barWidth - width(element)))
+                fitToBar = (element) -> setOffset orientation, element, pixelize(Math.min (Math.max 0, getOffset(orientation, element)), (barWidth - dimension(orientation, element)))
 
                 checkConstraint = (ref) ->
                     if scope[ref] < minValue or scope[ref] > maxValue
@@ -151,22 +162,25 @@ sliderDirective = ($timeout) ->
                     return uL or uH
 
                 setPointers = ->
-                    offset ceilBub, pixelize(barWidth - width(ceilBub))
+                    setOffset orientation, ceilBub, pixelize(barWidth - dimension(orientation, ceilBub))
                     newLowValue = percentValue scope[refLow]
-                    offset minPtr, percentToOffset newLowValue
-                    offset lowBub, pixelize(offsetLeft(minPtr) - (halfWidth lowBub) + pointerHalfWidth)
+                    setOffset orientation, minPtr, percentToOffset newLowValue
+                    setOffset orientation, lowBub, pixelize(getOffset(orientation, minPtr) - dimension(orientation, lowBub) / 2 + pointerHalfWidth)
                     if range
                         newHighValue = percentValue scope[refHigh]
-                        offset maxPtr, percentToOffset newHighValue
-                        offset highBub, pixelize(offsetLeft(maxPtr) - (halfWidth highBub) + pointerHalfWidth)
+                        setOffset orientation, maxPtr, percentToOffset newHighValue
+                        setOffset orientation, highBub, pixelize(getOffset(orientation, maxPtr) - dimension(orientation, highBub) / 2 + pointerHalfWidth)
 
                         ((bar) ->
-                            offset bar, pixelize(offsetLeft(minPtr) + pointerHalfWidth)
-                            bar.css width: percentToOffset newHighValue - newLowValue
+                            setOffset orientation, bar, pixelize(getOffset(orientation, minPtr) + pointerHalfWidth)
+                            if isHorizontal orientation
+                                bar.css width: percentToOffset newHighValue - newLowValue
+                            else
+                                bar.css height: percentToOffset newHighValue - newLowValue
                         )(bar) for bar in [selBar, selDragHandleBar]
 
-                        offset selBub, pixelize(offsetLeft(selBar) + halfWidth(selBar) - halfWidth(selBub))
-                        offset cmbBub, pixelize(offsetLeft(selBar) + halfWidth(selBar) - halfWidth(cmbBub))
+                        setOffset orientation, selBub, pixelize(getOffset(orientation, selBar) + dimension(orientation, selBar) / 2 - dimension(orientation, selBub) / 2)
+                        setOffset orientation, cmbBub, pixelize(getOffset(orientation, selBar) + dimension(orientation, selBar) / 2 - dimension(orientation, cmbBub) / 2)
 
                 adjustBubbles = ->
                     fitToBar lowBub
@@ -176,7 +190,7 @@ sliderDirective = ($timeout) ->
                         fitToBar highBub
                         fitToBar selBub
 
-                        if gap(lowBub, highBub) < 10
+                        if gap(orientation, lowBub, highBub) < 10
                             hide lowBub
                             hide highBub
                             fitToBar cmbBub
@@ -188,18 +202,18 @@ sliderDirective = ($timeout) ->
                             hide cmbBub
                             bubToAdjust = highBub
 
-                    if gap(flrBub, lowBub) < 5
+                    if gap(orientation, flrBub, lowBub) < 5
                         hide flrBub
                     else
                         if range
-                            if gap(flrBub, bubToAdjust) < 5 then hide flrBub else show flrBub
+                            if gap(orientation, flrBub, bubToAdjust) < 5 then hide flrBub else show flrBub
                         else
                             show flrBub
-                    if gap(lowBub, ceilBub) < 5
+                    if gap(orientation, lowBub, ceilBub) < 5
                         hide ceilBub
                     else
                         if range
-                            if gap(bubToAdjust, ceilBub) < 5 then hide ceilBub else show ceilBub
+                            if gap(orientation, bubToAdjust, ceilBub) < 5 then hide ceilBub else show ceilBub
                         else
                             show ceilBub
 
@@ -264,8 +278,13 @@ sliderDirective = ($timeout) ->
                         ngDocument.unbind events.move
                         ngDocument.unbind events.end
                     onMove = (event) ->
-                        eventX = getX(event)
-                        newOffset = eventX - element[0].getBoundingClientRect().left - pointerHalfWidth
+                        eventX = getPointerOffset(orientation, event)
+                        newOffset = eventX - pointerHalfWidth
+
+                        if isHorizontal orientation
+                            newOffset -= element[0].getBoundingClientRect().left
+                        else
+                            newOffset -= element[0].getBoundingClientRect().top
                         newPercent = percentOffset newOffset
                         newValue = minValue + (valueRange * newPercent / 100.0)
                         if range and not ensureMinAndFixedRange ref, newValue
@@ -305,7 +324,7 @@ sliderDirective = ($timeout) ->
                         event.stopPropagation()
                         event.preventDefault()
 
-                        offsetPointerStart = getX(event)
+                        offsetPointerStart = getPointerOffset(orientation, event)
                         offsetLowStart = parseInt percentToOffset percentValue scope[refLow], 10
                         offsetHighStart = parseInt percentToOffset percentValue scope[refHigh], 10
 
@@ -313,7 +332,7 @@ sliderDirective = ($timeout) ->
                         ngDocument.bind events.end, onEnd
 
                     onMove = (event) ->
-                        offsetPointerCurrent = getX(event)
+                        offsetPointerCurrent = getPointerOffset(orientation, event)
                         offsetPointerDelta = offsetPointerCurrent - offsetPointerStart
 
                         offsetLowCurrent = offsetLowStart + offsetPointerDelta

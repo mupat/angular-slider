@@ -11,3 +11,5 @@ slider span.pointer.active:after{background-color:#f00}
 slider span.bubble{cursor:default;top:-22px;padding:1px 3px 1px 3px;font-size:.7em;font-family:sans-serif;}
 slider span.bubble.selection{top:15px}
 slider span.bubble.limit{color:#808080}
+slider.vertical-slider{width:7px;height:100%;margin:5px 25px 5px 25px;}
+slider.vertical-slider span.pointer{top:0;left:-8px}
