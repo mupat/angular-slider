@@ -64,7 +64,7 @@
     steppedValue = remainder > (step / 2) ? value + step - remainder : value - remainder;
     decimals = Math.pow(10, precision);
     roundedValue = steppedValue * decimals / decimals;
-    return roundedValue.toFixed(precision);
+    return Number(roundedValue.toFixed(precision));
   };
   inputEvents = {
     mouse: {
